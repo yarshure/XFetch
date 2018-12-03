@@ -12,6 +12,16 @@ class ViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        let req = LoginReqModel()
+        req.password = "222222"
+        req.mobileNum = "111222"
+        req.fcmId = "string"
+        API.login(req: req, onSuccess: { (resp) in
+            print(resp.respCode)
+        }) { (e) in
+            print(e)
+        }
+        print(req)
         // Do any additional setup after loading the view, typically from a nib.
     }
 
