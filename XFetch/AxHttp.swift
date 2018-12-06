@@ -7,11 +7,11 @@
 //
 
 import Foundation
-import SwiftyJSON
+//import SwiftyJSON
 //import ObjectMapper
 import Just
-enum HTTPMethod:CustomStringConvertible{
-    var description: String {
+public enum HTTPMethod:CustomStringConvertible{
+    public var description: String {
         switch self {
         case .post:
             return "post"
@@ -30,11 +30,11 @@ enum HTTPMethod:CustomStringConvertible{
     case delete
     
 }
-enum EABasePath:String {
+public enum EABasePath:String {
     case api = "/api"
   
 }
-class AxHttpParameter:NSObject{
+public class AxHttpParameter:NSObject{
     
     var baseURL:String?
    // var attr:String = "nodata" //用来parser json
@@ -43,7 +43,7 @@ class AxHttpParameter:NSObject{
     var httpMethod:HTTPMethod = .post
     var paras:[String:AnyObject]=[:]
     var headers:[String:String]=[:]
-    init(path:String,method:HTTPMethod,basePath:EABasePath ){
+    public init(path:String,method:HTTPMethod,basePath:EABasePath ){
         self.path = path
         self.httpMethod = method
         self.basePath = basePath
@@ -67,13 +67,13 @@ class AxHttpParameter:NSObject{
 //        var imsi:String = ""////用户标识
         
     }
-    func addHeaderKey(_ key:String, value:String){
+   public func addHeaderKey(_ key:String, value:String){
         if (!key.isEmpty) && (!value.isEmpty){
             self.headers[key]=value
         }
     }
     
-    func addParaKey<T>(_ key:String, value:T){
+    public func addParaKey<T>(_ key:String, value:T){
         if (!key.isEmpty) {
             self.paras[key] =  value as AnyObject?
 
@@ -81,7 +81,7 @@ class AxHttpParameter:NSObject{
     }
 
     
-    override var description: String {
+    override public var description: String {
         return "path:\(path),method:\(httpMethod),paras:\(paras),headers:\(headers)"
     }
 }
@@ -157,7 +157,7 @@ class  AxJust{
     }
 }
 
-open class AxHttp:NSObject{
+  open  class AxHttp:NSObject{
     @objc static var baseUrl:String = EAApiConsts.serverUrl
     @objc static var globalHeaders:[String:String]=[:]
     @objc static var unAuthCb:(() ->Void)?
@@ -192,138 +192,127 @@ open class AxHttp:NSObject{
             unAuthCb()
         }
     }
-    typealias AxHttpFailCbType=(_ response:EAApiError?)->Void
-    static func processFailWith(_ httpCode:Int?,reason:String?,response:AnyObject?,para:AxHttpParameter,failCb:@escaping AxHttpFailCbType){
-        self.log("request[method:\(para.httpMethod) url:\(para.fullPath(baseUrl)) para:\(para.paras) headers:\(para.headers)] String(describing: response)[httpCode:\(String(describing: httpCode)) reason:\(String(describing: reason)) response:\(String(describing: response))]")
-        DispatchQueue.main.async{
-            let decoder = JSONDecoder()
-            
-            if let httpCode=httpCode ,let response = response {
-                if httpCode/100 ==  4 {
-                    failCb(EAApiError())
-                }else {
-                    failCb(EAApiError())
-                }
-                
-            }else{
-                //Mapper<QoodApiError>().map(JSON:response as! [String : Any])
-                let error = EAApiError()
-//                error.msg = "no response"
-//                error.code = String(describing: httpCode)
-//                error.para = para
-                if let r = reason {
-                    error.reason = r
-                }
-                failCb(error)
-                
-            }
-        }
-    }
     
-    static func doHttpWithPara<T:Codable>(_ para:AxHttpParameter, onSuccess:@escaping (_:T)->Void, onFail:@escaping AxHttpFailCbType){
+    
+    public static func doHttpWithPara<T:Decodable>(_ para:AxHttpParameter, onSuccess:@escaping (_:T?,EAApiError?)->Void){
         self.logPara(para)
         let url = para.fullPath(baseUrl)
-        //        if let turl  = para.url {
-        //            url = turl
-        //        }else {
-        //            //走这里
-        //            url = para.fullPath(baseUrl)
-        //        }
-        print("\(url)")
+    
         AxJust.doJustHttpWithPara(url, method: para.httpMethod, para: para.paras as [String : AnyObject], headers: para.fullHeaders(globalHeaders), onSuccess: {
             responseJson in
             if let data = responseJson as? Data {
                 let decoder = JSONDecoder()
                 let t = try! decoder.decode(T.self, from: data)
-                DispatchQueue.main.async{onSuccess(t)}
-                return
+                DispatchQueue.main.async{onSuccess(t,nil)}
+                
                 
             }else {
-                
-            }
-            self.logResponse(responseJson)
-            let decoder = JSONDecoder()
-            guard let responseJson =  responseJson else{
+                 let decoder = JSONDecoder()
+                if let objJson = responseJson as? [String:AnyObject]{
+                    
+                }
                 let x = try! decoder.decode(T.self, from: Data())
-                DispatchQueue.main.async{onSuccess(x)}
-                return
+                DispatchQueue.main.async{onSuccess(x,nil)}
             }
-            print(responseJson)
-            let x = try! decoder.decode(T.self, from: Data())
-            DispatchQueue.main.async{onSuccess(x)}
-            
-          
-            
         }, onFail: {
             httpCode,reason,responseJson in
-            self.processFailWith(httpCode, reason: reason, response: responseJson, para:
-                para , failCb: onFail)
+            let error = EAApiError()
+            
+            if let r = reason {
+                error.reason = r
+            }
+            DispatchQueue.main.async{onSuccess(nil,error)}
         })
     }
-    static func doHttpWithPara<T:Codable>(_ para:AxHttpParameter, onSuccess:@escaping (_:[T]?)->Void, onFail:@escaping AxHttpFailCbType){
+    public static func doHttpWithPara<T:Decodable>(_ para:AxHttpParameter, onSuccess:@escaping (_:[T]?,EAApiError?)->Void){
         self.logPara(para)
         AxJust.doJustHttpWithPara(para.fullPath(baseUrl), method: para.httpMethod, para: para.paras as [String : AnyObject], headers: para.fullHeaders(globalHeaders), onSuccess: {
             responseJson in
             self.logResponse(responseJson)
             
-            DispatchQueue.main.async{onSuccess(nil)}
+            DispatchQueue.main.async{onSuccess(nil,nil)}
         }, onFail: {
             httpCode,reason,responseJson in
-            self.processFailWith(httpCode, reason: reason, response: responseJson, para: para, failCb: onFail)
+            let error = EAApiError()
+            
+            if let r = reason {
+                error.reason = r
+            }
+            DispatchQueue.main.async{onSuccess(nil,error)}
         })
     }
-    static func doHttpWithPara<T:Codable>(_ para:AxHttpParameter, onSuccess:@escaping (_:[T]?)->Void,objMapper: @escaping (_ json:AnyObject?)->[T]?, onFail:@escaping AxHttpFailCbType){
+    public static func doHttpWithPara<T:Decodable>(_ para:AxHttpParameter, onSuccess:@escaping (_:[T]?,EAApiError?)->Void,objMapper: @escaping (_ json:AnyObject?)->[T]?){
         self.logPara(para)
         AxJust.doJustHttpWithPara(para.fullPath(baseUrl), method: para.httpMethod, para: para.paras as [String : AnyObject], headers: para.fullHeaders(globalHeaders), onSuccess: {
             responseJson in
             self.logResponse(responseJson)
             let obj = objMapper(responseJson)
-            DispatchQueue.main.async{onSuccess(obj)}
+            DispatchQueue.main.async{onSuccess(obj,nil)}
         }, onFail: {
             httpCode,reason,responseJson in
-            self.processFailWith(httpCode, reason: reason, response: responseJson, para: para, failCb: onFail)
+            let error = EAApiError()
+            
+            if let r = reason {
+                error.reason = r
+            }
+            DispatchQueue.main.async{onSuccess(nil,error)}
         })
     }
-    static func doHttpWithPara<T:Codable>(_ para:AxHttpParameter, onSuccess:@escaping (_:T?)->Void,objMapper: @escaping (_ json:AnyObject?)->T?, onFail:@escaping AxHttpFailCbType){
+    public static func doHttpWithPara<T:Decodable>(_ para:AxHttpParameter, onSuccess:@escaping (_:T?,EAApiError?)->Void,objMapper: @escaping (_ json:AnyObject?)->T?){
         self.logPara(para)
         AxJust.doJustHttpWithPara(para.fullPath(baseUrl), method: para.httpMethod, para: para.paras as [String : AnyObject], headers: para.fullHeaders(globalHeaders), onSuccess: {
             responseJson in
             self.logResponse(responseJson)
             let obj = objMapper(responseJson)
-            DispatchQueue.main.async{onSuccess(obj)}
+            DispatchQueue.main.async{onSuccess(obj,nil)}
         }, onFail: {
             httpCode,reason,responseJson in
-            self.processFailWith(httpCode, reason: reason, response: responseJson, para: para, failCb: onFail)
+            let error = EAApiError()
+            
+            if let r = reason {
+                error.reason = r
+            }
+            DispatchQueue.main.async{onSuccess(nil,error)}
         })
     }
-    static func doHttpWithPara<T:Codable>(_ para:AxHttpParameter, onSuccess:@escaping (_:[T]?)->Void,objMapper: @escaping (_ json:AnyObject?)->T?, onFail:@escaping AxHttpFailCbType){
+    public static func doHttpWithPara<T:Decodable>(_ para:AxHttpParameter, onSuccess:@escaping (_:[T]?,EAApiError?)->Void,objMapper: @escaping (_ json:AnyObject?)->T? ){
         self.logPara(para)
         AxJust.doJustHttpWithPara(para.fullPath(baseUrl), method: para.httpMethod, para: para.paras as [String : AnyObject], headers: para.fullHeaders(globalHeaders), onSuccess: {
             responseJson in
             self.logResponse(responseJson)
             let obj = objMapper(responseJson)
-            DispatchQueue.main.async{onSuccess(obj as? [T])}
+            DispatchQueue.main.async{onSuccess(obj as? [T],nil)}
         }, onFail: {
             httpCode,reason,responseJson in
-            self.processFailWith(httpCode, reason: reason, response: responseJson, para: para, failCb: onFail)
+            let error = EAApiError()
+            
+            if let r = reason {
+                error.reason = r
+            }
+            DispatchQueue.main.async{onSuccess(nil,error)}
         })
     }
-    static func doHttpWithPara(_ para:AxHttpParameter, onSuccess:@escaping (_:AnyObject?)->Void, onFail:@escaping AxHttpFailCbType){
+    public static func doHttpWithPara(_ para:AxHttpParameter, onSuccess:@escaping (_:AnyObject?,EAApiError?)->Void){
         self.logPara(para)
         AxJust.doJustHttpWithPara(para.fullPath(baseUrl), method: para.httpMethod, para: para.paras as [String : AnyObject], headers: para.fullHeaders(globalHeaders), onSuccess: {
             responseJson in
             self.logResponse(responseJson)
             if let objJson=responseJson as? [String:AnyObject]{
-                DispatchQueue.main.async{onSuccess(objJson as AnyObject)}
+                DispatchQueue.main.async{onSuccess(objJson as AnyObject,nil)}
             }else{
-                DispatchQueue.main.async{onSuccess(nil)}
+                DispatchQueue.main.async{onSuccess(nil,nil)}
             }
         }, onFail: {
             httpCode,reason,responseJson in
-            self.processFailWith(httpCode, reason: reason, response: responseJson, para: para, failCb: onFail)
+            let error = EAApiError()
+            
+            if let r = reason {
+                error.reason = r
+            }
+            DispatchQueue.main.async{onSuccess(nil,error)}
         })
     }
-    static func downloadFile(_ url:String,toPath:String,timeout:Double = EAApiConsts.apiTimeoutTime,progress:((Double)->Void)?=nil,complete:@escaping (Bool)->Void){
+    public static func downloadFile(_ url:String,toPath:String,timeout:Double = EAApiConsts.apiTimeoutTime,progress:((Double)->Void)?=nil,complete:@escaping (Bool)->Void){
         
         Just.get(url, timeout: timeout, asyncProgressHandler: {
             p in
@@ -349,7 +338,7 @@ open class AxHttp:NSObject{
             }
         }
     }
-    static func uploadFile(_ url:String,filename:String,file:String,headers:[String:String],para:[String:AnyObject],timeout:Double = EAApiConsts.apiTimeoutTime,progress:((Double)->Void)?=nil,complete:@escaping (Bool)->Void){
+    public static func uploadFile(_ url:String,filename:String,file:String,headers:[String:String],para:[String:AnyObject],timeout:Double = EAApiConsts.apiTimeoutTime,progress:((Double)->Void)?=nil,complete:@escaping (Bool)->Void){
         //        if let fileurl = NSURL(fileURLWithPath: file){
         //            Just.post(url, headers: headers,data:para, files: [filename:HTTPFile.URL(fileurl,nil)], timeout: timeout, asyncProgressHandler: {
         //                p in

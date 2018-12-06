@@ -1,6 +1,6 @@
 
 import Foundation
-import ObjectMapper
+//import ObjectMapper
 open class EAApiError:Codable{
     var HTTPCode:Int = 200
     var epResultCode:Int = 0

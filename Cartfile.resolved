@@ -1,0 +1,4 @@
+github "SwiftyJSON/SwiftyJSON" "4.2.0"
+github "TakeScoop/SwiftyRSA" "1.5.0"
+github "networkextension/ObjectMapper" "4.2"
+github "yarshure/Just" "0.7.1"
